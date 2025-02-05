@@ -1,95 +1,81 @@
-import Image from "next/image";
-import styles from "./page.module.css";
+"use client"
+
+import { TaskUseCases } from "@/core/application/usecases/taskUseCases"
+import { InMemoryTaskRepository } from "@/core/data/repositories/TaskRepository"
+import type React from "react"
+import { useState, useEffect } from "react"
+import { useDispatch, useSelector } from "react-redux"
+import { RootState } from "./redux/store"
+import { addTask, removeTask, setTasks, updateTask } from "./redux/taskSlice"
+
+const taskRepository = new InMemoryTaskRepository()
+const taskUseCases = new TaskUseCases(taskRepository)
 
 export default function Home() {
-  return (
-    <div className={styles.page}>
-      <main className={styles.main}>
-        <Image
-          className={styles.logo}
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol>
-          <li>
-            Get started by editing <code>src/app/page.tsx</code>.
-          </li>
-          <li>Save and see your changes instantly.</li>
-        </ol>
+  const dispatch = useDispatch()
+  const tasks = useSelector((state: RootState) => state.tasks.tasks)
+  const [newTaskTitle, setNewTaskTitle] = useState("")
 
-        <div className={styles.ctas}>
-          <a
-            className={styles.primary}
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className={styles.logo}
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+  useEffect(() => {
+    loadTasks()
+  }, [])
+
+  async function loadTasks() {
+    const loadedTasks = await taskUseCases.getAllTasks()
+    dispatch(setTasks(loadedTasks))
+  }
+
+  async function handleCreateTask(e: React.FormEvent) {
+    e.preventDefault()
+    if (newTaskTitle.trim()) {
+      const newTask = await taskUseCases.createTask(newTaskTitle)
+      dispatch(addTask(newTask))
+      setNewTaskTitle("")
+    }
+  }
+
+  async function handleToggleTask(id: string) {
+    const updatedTask = await taskUseCases.toggleTaskCompletion(id)
+    dispatch(updateTask(updatedTask))
+  }
+
+  async function handleDeleteTask(id: string) {
+    await taskUseCases.deleteTask(id)
+    dispatch(removeTask(id))
+  }
+
+  return (
+    <div className="container mx-auto p-4">
+      <h1 className="text-2xl font-bold mb-4">Task Manager</h1>
+      <form onSubmit={handleCreateTask} className="mb-4">
+        <input
+          type="text"
+          value={newTaskTitle}
+          onChange={(e) => setNewTaskTitle(e.target.value)}
+          placeholder="Enter a new task"
+          className="border p-2 mr-2"
+        />
+        <button type="submit" className="bg-blue-500 text-white p-2 rounded">
+          Add Task
+        </button>
+      </form>
+      <ul>
+        {tasks.map((task) => (
+          <li key={task.id} className="flex items-center mb-2">
+            <input
+              type="checkbox"
+              checked={task.completed}
+              onChange={() => handleToggleTask(task.id)}
+              className="mr-2"
             />
-            Deploy now
-          </a>
-          <a
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-            className={styles.secondary}
-          >
-            Read our docs
-          </a>
-        </div>
-      </main>
-      <footer className={styles.footer}>
-        <a
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+            <span className={task.completed ? "line-through" : ""}>{task.title}</span>
+            <button onClick={() => handleDeleteTask(task.id)} className="ml-2 text-red-500">
+              Delete
+            </button>
+          </li>
+        ))}
+      </ul>
     </div>
-  );
+  )
 }
+
